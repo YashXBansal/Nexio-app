@@ -1,23 +1,17 @@
 import express from "express";
-import dotenv from "dotenv";
-dotenv.config();
+import "dotenv/config";
+import authRoutes from "../routes/auth.route.js";
+import mongoose from "mongoose";
 
 const app = express();
 const PORT = process.env.PORT;
-console.log(`PORT: ${PORT}`);
 
-app.get("/api/auth/signup", (req, res) => {
-  res.send("Signup route");
-});
 
-app.get("/api/auth/login", (req, res) => {
-  res.send("Login route");
-});
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.get("/api/auth/signout", (req, res) => {
-  res.send("Signout route");
-});
+app.use("/api/auth", authRoutes);
 
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}/`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
