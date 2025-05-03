@@ -107,3 +107,112 @@ export const signout = (req, res) => {
   res.clearCookie("jwt");
   res.status(200).json({ message: "User signed out" });
 };
+
+// export const onboard = async (req, res) => {
+//   console.log("Onboarding user:", req.user);
+//   try {
+//     const { fullName, bio, nativeLanguage, learningLanguage, location } = req.body;
+//     const userId = req.user._id;
+
+//     if (!userId) {
+//       return res.status(400).json({ message: "User ID is required" });
+//     }
+
+//     const updatedUser = await User.findByIdAndUpdate(
+//       userId,
+//       { fullName, profilePic },
+//       { new: true }
+//     );
+
+//     if (!updatedUser) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     res.status(200).json({ message: "User onboarded successfully", user: updatedUser });
+//   } catch (err) {
+//     console.log("Error in onboarding:", err);
+//     res.status(400).json({ error: err.errors || err.message });
+//   }
+// }
+
+export const onboard = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized - No user found in request" });
+    }
+
+    const {
+      fullName,
+      bio,
+      nativeLanguage,
+      learningLanguage,
+      location,
+      profilePic, // Optional
+    } = req.body;
+
+    // Validate required fields
+    const requiredFields = {
+      fullName,
+      bio,
+      nativeLanguage,
+      learningLanguage,
+      location,
+    };
+    const missingFields = Object.entries(requiredFields)
+      .filter(([_, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: `Missing required fields: ${missingFields.join(", ")}`,
+        missingFields,
+      });
+    }
+
+    const updateData = {
+      fullName,
+      bio,
+      nativeLanguage,
+      learningLanguage,
+      location,
+      ...(profilePic && { profilePic }), // only include if provided
+      isOnboarded: true,
+    };
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+      new: true,
+      runValidators: true,
+    }).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    try {
+      await upsertStreamUser({
+        id: updatedUser._id.toString(),
+        name: updatedUser.fullName,
+        image: updatedUser.profilePic || "",
+      });
+      console.log(
+        `Stream user created/updated successfully for ${updatedUser.fullName}`
+      );
+    } catch (streamError) {
+      console.error("Error creating/updating Stream user:", streamError);
+      return res.status(500).json({
+        message: "Error creating/updating Stream user",
+      });
+    }
+
+    res.status(200).json({
+      message: "User onboarded successfully",
+      user: updatedUser,
+    });
+  } catch (err) {
+    console.error("Error in onboarding:", err);
+    res.status(500).json({ error: err.message || "Server error" });
+  }
+};
